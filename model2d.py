@@ -4,7 +4,6 @@ Created on Tue Jun 19 12:10:53 2018
 
 @author: daniel.farber
 """
-'''code optimization idea: get all distance arrays as first step of model_2d_start then call it in the for(T) loop'''
 import numpy as np
 from math import sqrt,exp
 from scipy.special import gamma
