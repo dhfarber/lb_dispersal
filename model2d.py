@@ -4,6 +4,7 @@ Created on Tue Jun 19 12:10:53 2018
 
 @author: daniel.farber
 """
+'''code optimization idea: get all distance arrays as first step of model_2d_start then call it in the for(T) loop'''
 import numpy as np
 from math import sqrt,exp
 from scipy.special import gamma
@@ -15,10 +16,10 @@ class kernel:
         self.n = n
     def initialize(self):
         return(np.ones(self.n))
-    def inv_power(self,b):
+    def inv_power(self,b,c):
         k = np.zeros(self.n)
         for i in range(self.n):
-            k[i] = (i+0.5)**(-b) 
+            k[i] = (i+c)**(-b) 
         y = k/(k.sum())
         return(y)
     def gamma_dist(self,a,b): 
@@ -28,7 +29,7 @@ class kernel:
             k[i] = ((b**a)/gamma(a))*(i**(a-1))*exp(-b*i)
         y = k/(k.sum())
         return(y[1:])  
-def dist_from_source(source_x,source_y,field_x,field_y): #returns array of approximate distance each cell in an arraty 
+def dist_from_source(source_x,source_y,field_x,field_y): #returns array of approximate distance of each cell in an array 
     cool = np.ones((2*field_x,2*field_y))
     return_arr = np.zeros((2*field_x,2*field_y))
     for i, j in np.argwhere(cool):
@@ -43,12 +44,13 @@ def kernel_2d(dist_arr,x,y,kernel_1d):
     return(normed_ret_arr[round(.1+(x)/2):round(.1+(x*(3/2))),round(.1+(y/2)):round(.1+(y*(3/2)))])
 def model_2d(x,y,T,spacing,l_period,i_period,dmfr,sites,initial_sev,focus,distribution,parameters): 
     if distribution=='inverse power' or distribution=='inv_power':
-        kernel_1d = kernel(3*x).inv_power(parameters) #one-dimensional kernel
+        kernel_1d = kernel(3*x).inv_power(parameters[0],parameters[1]) #one-dimensional kernel
     elif distribution=='gamma':
         kernel_1d = kernel(3*x).gamma_dist(parameters[0],parameters[1]) #one-dimensional kernel
     else:
         return('Error: kernel not recognized. Please choose "gamma" or "inverse power"')
-    dists_arr = np.empty((2*x,2*y,x*y)) #array of distances from sources in x by y field to 2x by 2y potential "sinks" 
+    dists_arr = np.empty((2*x,2*y,x*y)) #array of distances from sources in x by y field to 2x by 2y potential "sinks"
+    dists_field_subset = dists_arr[round(.1+(x)/2):round(.1+(x*(3/2))),round(.1+(y/2)):round(.1+(y*(3/2)))]
     counter = 0
     for i,j in np.argwhere(np.ones((x,y))): 
         dists_arr[:,:,counter] = dist_from_source(i,j,x,y) 
@@ -89,28 +91,26 @@ def model_2d(x,y,T,spacing,l_period,i_period,dmfr,sites,initial_sev,focus,distri
         if(np.mean(p_return[t,:,:])<.03*sites): #break when disease severity is > 97%
             break
     rem_return = rem_return.reshape(T+1,x,y)
-    ret_dir = {'p':(p_return),'u':(u_return),'v':(v_return),'rem':( rem_return),'k':(kernel_1d)}
+    ret_dir = {'Healthy':(p_return),'Latent':(u_return),'Infectious':(v_return),'Removed':( rem_return),'kernel':(kernel_1d),'distances':(dists_field_subset),'x':x,'y':y,'T':T,'spacing':spacing,'latent period':l_period,"infectious period":i_period,'DMFR':dmfr,'sites':sites,'initial severity':initial_sev,'focus':focus,'distribution':distribution,'paramters':parameters}
     return(ret_dir)
 class plot_model2d:
     def __init__(self,ret_dir): #input return dictionary from model_2d_start
         self.ret_dir = ret_dir
-        self.dis = np.sum(ret_dir['u'],axis=3)+np.sum(ret_dir['v'],axis=3)+ret_dir['rem'].reshape(len(ret_dir['rem'][:,1,1]),len(ret_dir['rem'][1,:,1]),len(ret_dir['rem'][1,1,:]))
-        #print(self.dis)
-    def plot_1d(self,latent,focus): #latent is a scalar; neceessary to plot a line at the end of each latent period
-        #calculate disease as a functgion of distance?
-        dist_arr = dist_from_source(focus[0],focus[1],np.size(self.dis,axis = 0),np.size(self.dis, axis = 1))
-        plotting_arr = np.zeros((np.amax(dist_arr),np.size(self.dis,axis=2)))
-        #print(plotting_arr)
-        for t in range(np.size(self.dis,axis=2)):#range(latent,np.size(self.dis,axis=2), latent): #issue: going from 2d to 1d
-            for d in range(np.amax(dist_arr)):
-                #print(d)
-                for i, j in np.argwhere(dist_arr==d): #pull row and column indices for each distance 
-                   plotting_arr[:,t] = sum(self.dis[i,j])
-        nmb_latent_per = round(len(plotting_arr[1,:])/latent)
-        col_list = ['purple','navy','blue','c','green','yellow','orange','red','brown','black']
+        self.dis = np.sum(ret_dir['Latent'],axis=3)+np.sum(ret_dir['Infectious'],axis=3)+ret_dir['Removed'].reshape(len(ret_dir['Removed'][:,1,1]),len(ret_dir['Removed'][1,:,1]),len(ret_dir['Removed'][1,1,:]))
+        self.distance_from_focus = self.ret_dir['distances'][:,:,int(self.ret_dir['focus'][0] + (self.ret_dir['focus'][1] * self.ret_dir['x']))].astype(int) # get 2D array of distansces from initial focus to all other cells in field
+    def plot_1d(self): #plot the downwind cells self.dis as a function of the number of cells
+        col_list = ['purple','navy','blue','c','green','yellow','orange','red','brown','black'] #colors to represent the disease progress at each latent period
+        focus_row = self.ret_dir['focus'][1] 
+        x_arr = np.arange(focus_row,len(self.dis[0,:,:])) # 1D x array
+        nmb_latent_per = round(float(self.ret_dir['T']/self.ret_dir['latent period'])) #number of latent periods
         for i in range(nmb_latent_per):
-            plt.plot(range(np.amax(dist_arr)),plotting_arr[:,latent*i],color = col_list[i])
-        return(plotting_arr)
+            disease_downwind = self.dis[:,focus_row, self.ret_dir['focus'][0]:] #1D y array
+            plt.plot(x_arr, disease_downwind[self.ret_dir['latent period']*i,:],color = col_list[i])
+        plt.title('Disease gradient from initial focus')
+        plt.xlabel('Distance from source')
+        plt.ylabel('Number of infections')
+        plt.legend('Latent periods' + range(nmb_latent_per))
+        #return(disease_downwind)
     def plot_2d(self,x,y,day):#plots 3d figure of x = N-S, y = W-E, z = severity at given day
         fig = plt.figure(figsize=(10,10))
         ax = fig.gca(projection='3d')
