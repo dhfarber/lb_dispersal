@@ -27,31 +27,7 @@ focus = [5,5] #[row(s),column(s)] of initial infections
 lesion_growth = [0,1,2]
 prod = [2.5,.05,1]
 
-epi_slow25 = mlg.model_2d(x,y,T,spacing,l_period,i_period,dmfr[0],sites,initial_sev[0],focus,distribution,parameters,lesion_growth[0])
-
-pickle_out = open('epi_slow25.pickle', 'wb')
-pickle.dump(epi_slow25,pickle_out)
-pickle_out.close()
-del epi_slow25
-
-epi_fast25 = mlg.model_2d(x,y,T,spacing,l_period,i_period,dmfr[2],sites,initial_sev[2],focus,distribution,parameters,lesion_growth[0])
-
-pickle_out = open('epi_fast25.pickle', 'wb')
-pickle.dump(epi_fast25,pickle_out)
-pickle_out.close()
-del epi_fast25
-
-epi_fast_lg25 = mlg.model_2d(x,y,T,spacing,l_period,i_period,dmfr[2],sites,initial_sev[2],focus,distribution,parameters,lesion_growth[1])
-
-pickle_out = open('epi_fast_lg25.pickle', 'wb')
-pickle.dump(epi_fast_lg25,pickle_out)
-pickle_out.close()
-del epi_fast_lg25
-
-#epi_trial_dmfr2pt5_p0pt05_lg0 = mlg.model_2d(x,y,T,spacing,l_period,i_period,dmfr[1],sites,initial_sev[1],focus,distribution,parameters,lesion_growth[0])
-
 '''The Automated Way'''
-'''
 alphabet = []
 for letter in range(97,123):
     alphabet.append(chr(letter))
@@ -70,6 +46,6 @@ for i in range(26):
      pickle_out = open(pickle_list[i],'wb')
      pickle.dump(epi_list[i],pickle_out)
      pickle_out.close()
-     epi_list[i] = 0 #hmm, deleting these badboys changes length of epi_list.'''
+     epi_list[i] = 0 
 
 
