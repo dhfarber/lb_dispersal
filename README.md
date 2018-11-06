@@ -1,4 +1,4 @@
-# lb_dispersal
+# SLIR Late Blight Model
 Late blight dispersal
 
 An R script to extract dispersal gradients from .csv files of binary images of infrared aerial images of late blight of potato (Phytophtora infestans)-infected fields.
